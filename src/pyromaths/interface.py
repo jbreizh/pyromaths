@@ -135,6 +135,16 @@ class Ui_MainWindow(object):
         self.opt_titre_fiche = QtGui.QLabel(self.tab_options)
         self.opt_titre_fiche.setText("Titre de la fiche d'exercices : ")
         self.verticalLayout_16.addWidget(self.opt_titre_fiche)
+
+        ############## Label compilateur_externe
+        self.opt_label_compilateur_externe = QtGui.QLabel(self.tab_options)
+        self.opt_label_compilateur_externe.setText(u"Utiliser le compilateur externe : ")
+        self.verticalLayout_16.addWidget(self.opt_label_compilateur_externe)
+
+        ############## Label chemin_compilateur_externe
+        self.opt_label_chemin_compilateur_externe = QtGui.QLabel(self.tab_options)
+        self.opt_label_chemin_compilateur_externe.setText(u"Chemin vers le compilateur externe : ")
+        self.verticalLayout_16.addWidget(self.opt_label_chemin_compilateur_externe)
         self.horizontalLayout_options1.addLayout(self.verticalLayout_16)
 
         ############## Layout pour les noms d'options, en haut à droite
@@ -167,6 +177,27 @@ class Ui_MainWindow(object):
         self.titre_fiche.setText(self.config['titre_fiche'])
         self.verticalLayout_17.addWidget(self.titre_fiche)
         self.horizontalLayout_options1.addLayout(self.verticalLayout_17)
+
+        ############## CheckBox "Compilateur externe"
+
+        self.checkBox_compilateur_externe = QtGui.QCheckBox(self.tab_options)
+        self.checkBox_compilateur_externe.setToolTip(u"Pyromaths doit-il utiliser le compilateur externe pour la compilation ?")
+        self.checkBox_compilateur_externe.setChecked(int(self.config["compilateur_externe"]))
+        self.verticalLayout_17.addWidget(self.checkBox_compilateur_externe)
+
+        ############## LineEdit chemin_compilateur_externe par défaut pour la compilation Latex
+
+        self.horizontalLayout_chemin_compilateur  = QtGui.QHBoxLayout()
+        self.chemin_compilateur_externe = QtGui.QLineEdit(self.tab_options)
+        self.chemin_compilateur_externe.setText(self.config["chemin_compilateur_externe"])
+        self.horizontalLayout_chemin_compilateur.addWidget(self.chemin_compilateur_externe)
+
+        ############## Bouton parcourir
+
+        self.pushButton_parcourir_chemin_compilateur_externe = QtGui.QPushButton(self.tab_options)
+        self.pushButton_parcourir_chemin_compilateur_externe.setText("Parcourir")
+        self.horizontalLayout_chemin_compilateur.addWidget(self.pushButton_parcourir_chemin_compilateur_externe)
+        self.verticalLayout_17.addLayout(self.horizontalLayout_chemin_compilateur)
         self.gridLayout_2.addLayout(self.horizontalLayout_options1, 0, 0, 1, 2)
 
         ############## Ligne de séparation
@@ -268,6 +299,11 @@ class Ui_MainWindow(object):
         self.horizontalLayout_3.addLayout(self.verticalLayout_20)
         self.gridLayout_2.addLayout(self.horizontalLayout_3, 2, 0, 1, 2)
 
+        ############## Configuration de l'affichage selon le fichier de configuration
+
+        self.option_compilateur_externe()
+        self.option_corrige()
+
         ############## Bouton enregistrer
 
         self.pushButton_enr_opt = QtGui.QPushButton(self.tab_options)
@@ -349,6 +385,8 @@ class Ui_MainWindow(object):
         QtCore.QObject.connect(self.pushButton_ok, QtCore.SIGNAL("clicked()"), self.creer_les_exercices)
         QtCore.QObject.connect(self.pushButton_enr_opt, QtCore.SIGNAL("clicked()"), self.enregistrer_config)
         QtCore.QObject.connect(self.pushButton_parcourir, QtCore.SIGNAL("clicked()"), self.option_parcourir)
+        QtCore.QObject.connect(self.checkBox_compilateur_externe,QtCore.SIGNAL("stateChanged(int)"), self.option_compilateur_externe)
+        QtCore.QObject.connect(self.pushButton_parcourir_chemin_compilateur_externe,QtCore.SIGNAL("clicked()"), self.option_parcourir_chemin_compilateur_externe)
         QtCore.QObject.connect(self.checkBox_corrige, QtCore.SIGNAL("stateChanged(int)"), self.option_corrige)
 
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -442,6 +480,8 @@ class Ui_MainWindow(object):
                 'creer_pdf': self.checkBox_pdf.isChecked(),
                 'creer_unpdf': self.checkBox_unpdf.isChecked() and self.checkBox_unpdf.isEnabled(),
                 'titre': unicode(self.titre_fiche.text()),
+                'compilateur_externe': self.checkBox_compilateur_externe.isChecked(),
+                'chemin_compilateur_externe': unicode(self.chemin_compilateur_externe.text()),
                 'corrige': self.checkBox_corrige.isChecked(),
                 'niveau': unicode(self.comboBox_niveau.currentText()),
                 'nom_fichier': unicode(self.nom_fichier.text()),
@@ -492,6 +532,8 @@ class Ui_MainWindow(object):
         options .find('nom_fichier').text = unicode(self.nom_fichier.text())
         options .find('chemin_fichier').text = unicode(self.chemin_fichier.text())
         options .find('titre_fiche').text = unicode(self.titre_fiche.text())
+        options .find('compilateur_externe').text = str(self.checkBox_compilateur_externe.isChecked())
+        options .find('chemin_compilateur_externe').text = unicode(self.chemin_compilateur_externe.text())
         options .find('corrige').text = str(self.checkBox_corrige.isChecked())
         options .find('pdf').text = str(self.checkBox_pdf.isChecked())
         options .find('unpdf').text = str(self.checkBox_unpdf.isChecked())
@@ -521,12 +563,27 @@ class Ui_MainWindow(object):
         if d0:
             self.chemin_fichier.setText(d0)
 
+    def option_parcourir_chemin_compilateur_externe(self):
+        chemin_compilateur_externe = unicode(QtGui.QFileDialog().getExistingDirectory (self.centralwidget, u"Dossier où trouver les exécutables Latex", unicode(self.chemin_compilateur_externe.text()), QtGui.QFileDialog.ShowDirsOnly))
+        if chemin_compilateur_externe:
+            self.chemin_compilateur_externe.setText(chemin_compilateur_externe)
+
     def option_corrige(self):
         if not self.checkBox_corrige.isChecked():
             self.checkBox_unpdf.setChecked(False)
             self.checkBox_unpdf.setEnabled(False)
         else:
             self.checkBox_unpdf.setEnabled(True)
+
+    def option_compilateur_externe(self):
+        if not self.checkBox_compilateur_externe.isChecked():
+            self.chemin_compilateur_externe.setEnabled(False)
+            self.pushButton_parcourir_chemin_compilateur_externe.setEnabled(False)
+            self.opt_label_chemin_compilateur_externe.setEnabled(False)
+        else:
+            self.chemin_compilateur_externe.setEnabled(True)
+            self.pushButton_parcourir_chemin_compilateur_externe.setEnabled(True)
+            self.opt_label_chemin_compilateur_externe.setEnabled(True)
 
     def setNbExos(self):
         """Modifie le nombre d'exercices dans la variable liste_creation lorsqu'on  modifie une spinBox
@@ -557,6 +614,7 @@ QCoreApplication::exec: The event loop is already runningteur avec le dictionnai
         self.config['corrige'] = self.checkBox_corrige.isChecked()
         self.config['pdf'] = self.checkBox_pdf.isChecked()
         self.config['unpdf'] = self.checkBox_unpdf.isChecked()and self.checkBox_unpdf.isEnabled()
+
 
 #================================================================
 #        Classe ChoixOrdreExos
