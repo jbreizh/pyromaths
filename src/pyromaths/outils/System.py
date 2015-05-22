@@ -27,7 +27,8 @@ from lxml import _elementpath as DONTUSE  # Astuce pour inclure lxml dans Py2exe
 from re import findall
 from .TexFiles import mise_en_forme
 from pyromaths.Values import HOME, VERSION, CONFIGDIR
-
+from subprocess import call
+import socket
 
 #==============================================================
 #        Gestion des extensions de fichiers
@@ -57,6 +58,8 @@ def create_config_file():
     etree.SubElement(child, "nom_fichier").text = "exercices"
     etree.SubElement(child, "chemin_fichier").text = "%s" % HOME
     etree.SubElement(child, "titre_fiche").text = u"Fiche de révisions"
+    etree.SubElement(child, "compilateur_externe").text="False"
+    etree.SubElement(child, "chemin_compilateur_externe").text="%s" % HOME
     etree.SubElement(child, "corrige").text = "True"
     etree.SubElement(child, "pdf").text = "True"
     etree.SubElement(child, "unpdf").text = "False"
@@ -196,7 +199,7 @@ def creation(parametres):
     # Dossiers et fichiers d'enregistrement, définitions qui doivent rester avant le if suivant.
     dir0 = os.path.dirname(exo)
     dir1 = os.path.dirname(cor)
-    import socket
+
     if socket.gethostname() == "sd-27355.pyromaths.org":
         # Chemin complet pour Pyromaths en ligne car pas d'accents
         f0noext = os.path.splitext(exo)[0].encode(sys.getfilesystemencoding())
@@ -206,63 +209,58 @@ def creation(parametres):
         # le chemin (latex ne gère pas le 8 bits)
         f0noext = os.path.splitext(os.path.basename(exo))[0].encode(sys.getfilesystemencoding())
         f1noext = os.path.splitext(os.path.basename(cor))[0].encode(sys.getfilesystemencoding())
-    if parametres['creer_pdf']:
-        from subprocess import call
 
-        os.chdir(dir0)
-        latexmkrc(f0noext)
-        log = open('%s-pyromaths.log' % f0noext, 'w')
+    ## Chemin vers le compilateur
+    if parametres["compilateur_externe"]:
+        #on prend en compte parametres["chemin_compilateur_externe"]
+        chemin_compilateur = parametres["chemin_compilateur_externe"]
+    else:
+        #on utilise le compilateur interne
         if socket.gethostname() == "sd-27355.pyromaths.org":
-            os.environ['PATH'] += os.pathsep + "/usr/local/texlive/2014/bin/x86_64-linux"
-            call(["latexmk", "-shell-escape", "-silent", "-interaction=nonstopmode", "-output-directory=%s" % dir0, "-pdfps", "%s.tex" % f0noext], env=os.environ, stdout=log)
-            call(["latexmk", "-c", "-silent", "-output-directory=%s" % dir0], env=os.environ, stdout=log)
+            chemin_compilateur = "/usr/local/texlive/2014/bin/x86_64-linux"
         elif os.name == 'nt':
-            call(["latexmk", "-pdfps", "-shell-escape", "-silent", "-interaction=nonstopmode", "%s.tex" % f0noext], env={"PATH": os.environ['PATH'], "WINDIR": os.environ['WINDIR'], 'USERPROFILE': os.environ['USERPROFILE']}, stdout=log)
-            call(["latexmk", "-silent", "-c"], env={"PATH": os.environ['PATH'], "WINDIR": os.environ['WINDIR'], 'USERPROFILE': os.environ['USERPROFILE']}, stdout=log)
+            chemin_compilateur = os.path.join(parametres['datadir'], "texlive", "bin", "win32")
         else:
-            call(["latexmk", "-pdfps", "-shell-escape", "-silent", "-interaction=nonstopmode", "%s.tex" % f0noext], stdout=log)
-            call(["latexmk", "-silent", "-c", "-f"], stdout=log)
-        log.close()
-        nettoyage(f0noext)
+            chemin_compilateur = ""
+
+    ## Création et affichage des PDF
+    if parametres['creer_pdf']:
+        creation_pdf(dir0, f0noext, chemin_compilateur)
+        nettoyage(dir0,f0noext, False)
         if not "openpdf" in parametres or parametres["openpdf"]:
-            if os.name == "nt":  # Cas de Windows.
-                os.startfile('%s.pdf' % f0noext)
-            elif sys.platform == "darwin":  # Cas de Mac OS X.
-                os.system('open %s.pdf' % f0noext)
-            else:
-                os.system('xdg-open %s.pdf' % f0noext)
+            affichage_pdf(dir0, f0noext)
 
         if parametres['corrige'] and not parametres['creer_unpdf']:
-            os.chdir(dir1)
-            latexmkrc(f1noext)
-            log = open('%s-pyromaths.log' % f1noext, 'w')
-            if socket.gethostname() == "sd-27355.pyromaths.org":
-                os.environ['PATH'] += os.pathsep + "/usr/local/texlive/2014/bin/x86_64-linux"
-                call(["latexmk", "-shell-escape", "-silent", "-interaction=nonstopmode", "-output-directory=%s" % dir1, "-pdfps", "%s.tex" % f1noext], env=os.environ, stdout=log)
-                call(["latexmk", "-c", "-silent", "-output-directory=%s" % dir1], env=os.environ, stdout=log)
-            elif os.name == 'nt':
-                call(["latexmk", "%s.tex" % f1noext], env={"PATH": os.environ['PATH'], "WINDIR": os.environ['WINDIR'], 'USERPROFILE': os.environ['USERPROFILE']}, stdout=log)
-                call(["latexmk", "-c"], env={"PATH": os.environ['PATH'], "WINDIR": os.environ['WINDIR'], 'USERPROFILE': os.environ['USERPROFILE']}, stdout=log)
-            else:
-                call(["latexmk", "%s.tex" % f1noext], stdout=log)
-                call(["latexmk", "-c"], stdout=log)
-            log.close()
-            nettoyage(f1noext)
+            creation_pdf(dir1, f1noext, chemin_compilateur)
+            nettoyage(dir1, f1noext, False)
             if not "openpdf" in parametres or parametres["openpdf"]:
-                if os.name == "nt":  # Cas de Windows.
-                    os.startfile('%s.pdf' % f1noext)
-                elif sys.platform == "darwin":  # Cas de Mac OS X.
-                    os.system('open %s.pdf' % f1noext)
-                else:
-                    os.system('xdg-open %s.pdf' % f1noext)
+                affichage_pdf(dir1, f1noext)
         else:
             os.remove('%s-corrige.tex' % f0noext)
+
+def creation_pdf(dossier, fichier, chemin_compilateur):
+    """  Créé les fichiers PDF """
+    ## Changement de dossier
+    os.chdir(dossier)
+    ## Compilation 
+    latexmkrc(fichier)
+    log = open('%s-pyromaths.log' % fichier, 'w')
+    if socket.gethostname() == "sd-27355.pyromaths.org":
+        call([unicode(os.path.join(chemin_compilateur, "latexmk")), "-shell-escape", "-silent", "-interaction=nonstopmode", "-output-directory=%s" % dossier, "-pdfps", "%s.tex" % fichier], env=os.environ, stdout=log)
+        call([unicode(os.path.join(chemin_compilateur, "latexmk")), "-c", "-silent", "-output-directory=%s" % dossier], env=os.environ, stdout=log)
+#    elif os.name == 'nt':
+#        call([unicode(os.path.join(chemin_compilateur, "latexmk")), "-pdfps", "-shell-escape", "-silent", "-interaction=nonstopmode", "%s.tex" % fichier], env={"PATH": os.environ['PATH'], "WINDIR": os.environ['WINDIR'], 'USERPROFILE': os.environ['USERPROFILE']}, stdout=log)
+#        call([unicode(os.path.join(chemin_compilateur, "latexmk")), "-silent", "-c"], env={"PATH": os.environ['PATH'], "WINDIR": os.environ['WINDIR'], 'USERPROFILE': os.environ['USERPROFILE']}, stdout=log)
+    else:
+        call([unicode(os.path.join(chemin_compilateur, "latexmk")), "-pdfps", "-shell-escape", "-silent", "-interaction=nonstopmode", "%s.tex" % fichier], stdout=log)
+        call([unicode(os.path.join(chemin_compilateur, "latexmk")), "-silent", "-c", "-f"], stdout=log)
+    log.close()
 
 def latexmkrc(basefilename):
     latexmkrc = open('latexmkrc', 'w')
     latexmkrc.write('$pdf_mode = 2;\n')
     latexmkrc.write('$ps2pdf = "ps2pdf %O %S %D";\n')
-    latexmkrc.write('$latex = "latex --shell-escape -silent -interaction=nonstopmode  %O %S";\n')
+    latexmkrc.write('$latex = "latex --shell-escape -interaction=nonstopmode  %O %S";\n')
     latexmkrc.write('sub asy {return system("asy \'$_[0]\'");}\n')
     latexmkrc.write('add_cus_dep("asy","eps",0,"asy");\n')
     latexmkrc.write('add_cus_dep("asy","pdf",0,"asy");\n')
@@ -271,18 +269,36 @@ def latexmkrc(basefilename):
     latexmkrc.write('$clean_ext .= " %R-?.tex %R-??.tex %R-figure*.dpth %R-figure*.dvi %R-figure*.eps %R-figure*.log %R-figure*.md5 %R-figure*.pre %R-figure*.ps %R-figure*.asy %R-*.asy %R-*_0.eps %R-*.pre";')
     latexmkrc.close()
 
-def nettoyage(basefilename):
+def nettoyage(dossier, fichier, effacer_tex):
     """Supprime les fichiers temporaires créés par LaTeX"""
-    #try:
-    #    os.remove('latexmkrc')
-    #except OSError:
-    #        pass
-    if os.path.getsize('%s.pdf' % basefilename) > 1000 :
-        for ext in ('.log', '-pyromaths.log'):
+    ## Changement de dossier
+    os.chdir(dossier)
+    ## Liste des extensions à supprimer
+    extensions = ['.log', '-pyromaths.log']
+    if effacer_tex:
+        extensions.append('.tex')
+    ## Suppression des fichiers
+    if os.path.getsize('%s.pdf' % fichier) > 1000 :
+        for extension in extensions:
             try:
-                os.remove(basefilename + ext)
+                os.remove(fichier+extension)
             except OSError:
                 pass
+                #le fichier à supprimer n'existe pas et on s'en moque.
+
+def affichage_pdf(dossier, fichier):
+    """  Affiche les fichiers PDF créés par pyromaths  """
+    ## Changement de dossier
+    os.chdir(dossier)
+    ## Cas de Windows
+    if os.name == "nt":
+         os.startfile("%s.pdf" % fichier)
+    ## Cas de Mac OS X
+    elif sys.platform == "darwin":
+         call(["open", "%s.pdf" % fichier])
+    ## Cas de Linux
+    else:
+         call(["xdg-open", "%s.pdf" % fichier])
 
 def copie_tronq_modele(dest, parametres, master):
     """Copie des morceaux des modèles, suivant le schéma du master."""
