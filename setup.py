@@ -149,8 +149,8 @@ Name: "{commondesktop}\Pyromaths"; Filename: "{app}\pyromaths.exe"
            ),
           (r'data/templates', glob(r'data/templates/*.tex')),
           (r'data/packages', glob(r'data/packages/*')),
-          (r'data/packages', glob(r'data/packages/*')),
-        ] + find_data_files('data/ex','data/ex/',['*/img/ex-*.png']),
+        ] + find_data_files('data/ex','data/ex/',['*/img/ex-*.png'])
+        + find_data_files('data/texlive','data/texlive',["*","*/*","*/*/*","*/*/*/*","*/*/*/*/*","*/*/*/*/*/*","*/*/*/*/*/*/*","*/*/*/*/*/*/*/*","*/*/*/*/*/*/*/*/*","*/*/*/*/*/*/*/*/*/*","*/*/*/*/*/*/*/*/*/*/*","*/*/*/*/*/*/*/*/*/*/*/*","*/*/*/*/*/*/*/*/*/*/*/*/*"]),
         zipfile = None,
         windows = [dict(script="pyromaths",
                         icon_resources=[(1, 'data/images/pyromaths.ico')],
