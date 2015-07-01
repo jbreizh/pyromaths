@@ -46,9 +46,9 @@ class Ui_MainWindow(object):
             MainWindow.setWindowIcon(QtGui.QIcon(ICONDIR))
         MainWindow.setWindowTitle("Pyromaths")
         MainWindow.setGeometry(0, 44, 900, 600)
-        font = QtGui.QFont()
-        font.setPointSize(10)
-        MainWindow.setFont(font)
+#        font = QtGui.QFont()
+#        font.setPointSize(10)
+#        MainWindow.setFont(font)
 #        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         ## Widget principal
         self.centralwidget = QtGui.QWidget(MainWindow)
